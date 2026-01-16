@@ -6,13 +6,12 @@ This project implements a Role-Based Access Control (RBAC) service. The purpose 
 ## Tech Stack
 - Backend: Python + Django + DRF
 - Database: PostgreSQL
-- Authentication: JWT (JSON Web Tokens). Use PyJWT library.
 - Deployment: Docker for containerization
 - Version Control: Git
 - Specification Management: OpenSpec framework
 - uv for virtual environment management and running code
 - ruff for linting
-- ruff-format for code formatting (line length: 79)
+- ruff-format for code formatting (line length: 79, quote-style: single)
 - pytest for testing
 - pytest-cov for code coverage reporting
 
@@ -25,7 +24,7 @@ This project implements a Role-Based Access Control (RBAC) service. The purpose 
 - Follow PEP 8 style guide with ruff-specific rules
 
 ### Architecture Patterns
-Follow Django's MTV (Model-Template-View) pattern extended with Django REST Framework (DRF) for API development. Use a service layer to encapsulate business logic and keep views thin. Implement RBAC using custom permission classes and decorators. Database schema includes models for Users, Roles, Permissions, and many-to-many relationships. Use Django's authentication system with JWT for stateless sessions. Adopt microservices principles if the system grows, but start monolithic. Ensure scalability with database indexing and caching.
+Follow Django's MTV (Model-Template-View) pattern extended with Django REST Framework (DRF) for API development. Use a service layer to encapsulate business logic and keep views thin. Implement RBAC using custom permission classes and decorators. Database schema includes models for Users, Roles, Permissions, and many-to-many relationships. Adopt microservices principles if the system grows, but start monolithic. Ensure scalability with database indexing and caching.
 
 ### Testing Strategy
 Employ pytest + pytest-django as the primary testing framework. Write unit tests for individual components like models, serializers, and services. Create integration tests for API endpoints using DRF's test client. Use pytest-cov for code coverage reporting, aiming for at least 80% coverage. Develop fixtures for reusable test data (e.g., users, roles, permissions). Include tests for authentication flows, permission checks, and edge cases. Run tests automatically in the CI/CD pipeline before deployments.
