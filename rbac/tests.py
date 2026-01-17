@@ -359,3 +359,303 @@ class AccessViewTest(APITestCase):
         response = self.client.get(url, params)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('error', response.data)
+
+
+class IsSuperuserPermissionTest(APITestCase):
+    """Test cases for IsSuperuser permission class."""
+
+    def setUp(self):
+        """Set up test data."""
+        self.superuser = User.objects.create_superuser(
+            email='super@test.com',
+            password='password',
+            first_name='Super',
+            last_name='User',
+        )
+        self.regular_user = User.objects.create_user(
+            email='regular@test.com',
+            password='password',
+            first_name='Regular',
+            last_name='User',
+        )
+
+    def test_superuser_has_permission(self):
+        """Test that superuser has permission."""
+        self.client.force_authenticate(user=self.superuser)
+        url = '/api/rbac/roles/'
+        response = self.client.get(url)
+        self.assertNotEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_regular_user_denied_permission(self):
+        """Test that regular user is denied permission."""
+        self.client.force_authenticate(user=self.regular_user)
+        url = '/api/rbac/roles/'
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_unauthenticated_user_denied_permission(self):
+        """Test that unauthenticated user is denied permission."""
+        url = '/api/rbac/roles/'
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
+class RoleViewSetTest(APITestCase):
+    """Test cases for RoleViewSet."""
+
+    def setUp(self):
+        """Set up test data."""
+        self.superuser = User.objects.create_superuser(
+            email='super@test.com',
+            password='password',
+            first_name='Super',
+            last_name='User',
+        )
+        self.regular_user = User.objects.create_user(
+            email='regular@test.com',
+            password='password',
+            first_name='Regular',
+            last_name='User',
+        )
+        self.client.force_authenticate(user=self.superuser)
+
+    def test_list_roles(self):
+        """Test listing all roles."""
+        Role.objects.create(name='TestRole', description='Test description')
+        url = '/api/rbac/roles/'
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]['name'], 'TestRole')
+        self.assertEqual(response.data[0]['description'], 'Test description')
+
+    def test_create_role(self):
+        """Test creating a new role."""
+        url = '/api/rbac/roles/'
+        data = {'name': 'NewRole', 'description': 'New role description'}
+        response = self.client.post(url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['name'], 'NewRole')
+        self.assertEqual(response.data['description'], 'New role description')
+        self.assertTrue(Role.objects.filter(name='NewRole').exists())
+
+    def test_retrieve_role(self):
+        """Test retrieving a specific role."""
+        role = Role.objects.create(
+            name='RetrieveRole', description='Retrieve me'
+        )
+        url = f'/api/rbac/roles/{role.id}/'
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['name'], 'RetrieveRole')
+        self.assertEqual(response.data['description'], 'Retrieve me')
+
+    def test_update_role(self):
+        """Test updating a role."""
+        role = Role.objects.create(
+            name='UpdateRole', description='Old description'
+        )
+        url = f'/api/rbac/roles/{role.id}/'
+        data = {'name': 'UpdatedRole', 'description': 'Updated description'}
+        response = self.client.put(url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['name'], 'UpdatedRole')
+        self.assertEqual(response.data['description'], 'Updated description')
+        role.refresh_from_db()
+        self.assertEqual(role.name, 'UpdatedRole')
+        self.assertEqual(role.description, 'Updated description')
+
+    def test_delete_role(self):
+        """Test deleting a role."""
+        role = Role.objects.create(
+            name='DeleteRole', description='To be deleted'
+        )
+        url = f'/api/rbac/roles/{role.id}/'
+        response = self.client.delete(url)
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(Role.objects.filter(name='DeleteRole').exists())
+
+    def test_non_superuser_denied_access(self):
+        """Test that non-superuser is denied access."""
+        self.client.force_authenticate(user=self.regular_user)
+        url = '/api/rbac/roles/'
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_unauthenticated_denied_access(self):
+        """Test that unauthenticated user is denied access."""
+        self.client.force_authenticate(user=None)
+        url = '/api/rbac/roles/'
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
+class BusinessElementViewSetTest(APITestCase):
+    """Test cases for BusinessElementViewSet."""
+
+    def setUp(self):
+        """Set up test data."""
+        self.superuser = User.objects.create_superuser(
+            email='super@test.com',
+            password='password',
+            first_name='Super',
+            last_name='User',
+        )
+        self.client.force_authenticate(user=self.superuser)
+
+    def test_list_business_elements(self):
+        """Test listing all business elements."""
+        BusinessElement.objects.create(
+            name='TestElement', description='Test description'
+        )
+        url = '/api/rbac/business-elements/'
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]['name'], 'TestElement')
+
+    def test_create_business_element(self):
+        """Test creating a new business element."""
+        url = '/api/rbac/business-elements/'
+        data = {'name': 'NewElement', 'description': 'New element description'}
+        response = self.client.post(url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['name'], 'NewElement')
+        self.assertTrue(
+            BusinessElement.objects.filter(name='NewElement').exists()
+        )
+
+    def test_retrieve_business_element(self):
+        """Test retrieving a specific business element."""
+        element = BusinessElement.objects.create(
+            name='RetrieveElement', description='Retrieve me'
+        )
+        url = f'/api/rbac/business-elements/{element.id}/'
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['name'], 'RetrieveElement')
+
+    def test_update_business_element(self):
+        """Test updating a business element."""
+        element = BusinessElement.objects.create(
+            name='UpdateElement', description='Old description'
+        )
+        url = f'/api/rbac/business-elements/{element.id}/'
+        data = {'name': 'UpdatedElement', 'description': 'Updated description'}
+        response = self.client.put(url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['name'], 'UpdatedElement')
+        element.refresh_from_db()
+        self.assertEqual(element.name, 'UpdatedElement')
+
+    def test_delete_business_element(self):
+        """Test deleting a business element."""
+        element = BusinessElement.objects.create(
+            name='DeleteElement', description='To be deleted'
+        )
+        url = f'/api/rbac/business-elements/{element.id}/'
+        response = self.client.delete(url)
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(
+            BusinessElement.objects.filter(name='DeleteElement').exists()
+        )
+
+
+class AccessRoleRuleViewSetTest(APITestCase):
+    """Test cases for AccessRoleRuleViewSet."""
+
+    def setUp(self):
+        """Set up test data."""
+        self.superuser = User.objects.create_superuser(
+            email='super@test.com',
+            password='password',
+            first_name='Super',
+            last_name='User',
+        )
+        self.client.force_authenticate(user=self.superuser)
+        self.role = Role.objects.create(name='TestRole')
+        self.element = BusinessElement.objects.create(name='TestElement')
+
+    def test_list_access_rules(self):
+        """Test listing all access rules."""
+        AccessRoleRule.objects.create(
+            role=self.role, element=self.element, read_permission=True
+        )
+        url = '/api/rbac/access-rules/'
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]['read_permission'], True)
+
+    def test_create_access_rule(self):
+        """Test creating a new access rule."""
+        url = '/api/rbac/access-rules/'
+        data = {
+            'role': str(self.role.id),
+            'element': str(self.element.id),
+            'read_permission': True,
+            'create_permission': False,
+        }
+        response = self.client.post(url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['read_permission'], True)
+        self.assertEqual(response.data['create_permission'], False)
+        self.assertTrue(
+            AccessRoleRule.objects.filter(
+                role=self.role, element=self.element
+            ).exists()
+        )
+
+    def test_create_duplicate_access_rule_fails(self):
+        """Test that creating duplicate access rule fails."""
+        AccessRoleRule.objects.create(
+            role=self.role, element=self.element, read_permission=True
+        )
+        url = '/api/rbac/access-rules/'
+        data = {
+            'role': str(self.role.id),
+            'element': str(self.element.id),
+            'create_permission': True,
+        }
+        response = self.client.post(url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_retrieve_access_rule(self):
+        """Test retrieving a specific access rule."""
+        rule = AccessRoleRule.objects.create(
+            role=self.role, element=self.element, read_permission=True
+        )
+        url = f'/api/rbac/access-rules/{rule.id}/'
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['read_permission'], True)
+
+    def test_update_access_rule(self):
+        """Test updating an access rule."""
+        rule = AccessRoleRule.objects.create(
+            role=self.role, element=self.element, read_permission=True
+        )
+        url = f'/api/rbac/access-rules/{rule.id}/'
+        data = {
+            'role': str(self.role.id),
+            'element': str(self.element.id),
+            'read_permission': False,
+            'create_permission': True,
+        }
+        response = self.client.put(url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['read_permission'], False)
+        self.assertEqual(response.data['create_permission'], True)
+        rule.refresh_from_db()
+        self.assertFalse(rule.read_permission)
+        self.assertTrue(rule.create_permission)
+
+    def test_delete_access_rule(self):
+        """Test deleting an access rule."""
+        rule = AccessRoleRule.objects.create(
+            role=self.role, element=self.element, read_permission=True
+        )
+        url = f'/api/rbac/access-rules/{rule.id}/'
+        response = self.client.delete(url)
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(AccessRoleRule.objects.filter(id=rule.id).exists())

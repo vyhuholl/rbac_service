@@ -1,10 +1,16 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.viewsets import ModelViewSet
 from django.contrib.auth import get_user_model
 
-from .models import BusinessElement, UserRole, AccessRoleRule
-from .serializers import BusinessElementSerializer
+from .models import BusinessElement, UserRole, AccessRoleRule, Role
+from .serializers import (
+    BusinessElementSerializer,
+    RoleSerializer,
+    AccessRoleRuleSerializer,
+)
+from .permissions import IsSuperuser
 
 User = get_user_model()
 
@@ -78,3 +84,27 @@ class AccessView(APIView):
         # Return resource data
         serializer = BusinessElementSerializer(business_element)
         return Response(serializer.data)
+
+
+class RoleViewSet(ModelViewSet):
+    """ViewSet for managing roles."""
+
+    queryset = Role.objects.all()
+    serializer_class = RoleSerializer
+    permission_classes = [IsSuperuser]
+
+
+class BusinessElementViewSet(ModelViewSet):
+    """ViewSet for managing business elements."""
+
+    queryset = BusinessElement.objects.all()
+    serializer_class = BusinessElementSerializer
+    permission_classes = [IsSuperuser]
+
+
+class AccessRoleRuleViewSet(ModelViewSet):
+    """ViewSet for managing access rules."""
+
+    queryset = AccessRoleRule.objects.all()
+    serializer_class = AccessRoleRuleSerializer
+    permission_classes = [IsSuperuser]
