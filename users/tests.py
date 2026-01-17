@@ -1,6 +1,14 @@
 from django.test import TestCase
+from rest_framework import status
+from rest_framework.test import APITestCase
+from rest_framework.authtoken.models import Token
 
 from .models import User
+from .serializers import (
+    UserRegistrationSerializer,
+    UserLoginSerializer,
+    UserUpdateSerializer,
+)
 
 
 class UserManagerTestCase(TestCase):
@@ -153,3 +161,244 @@ class UserModelTestCase(TestCase):
     def test_has_module_perms_regular_user(self):
         """Test has_module_perms method for regular user."""
         self.assertFalse(self.user.has_module_perms('any_app'))
+
+
+class UserRegistrationSerializerTestCase(TestCase):
+    """Test cases for UserRegistrationSerializer."""
+
+    def test_valid_registration_data(self):
+        """Test serializer with valid registration data."""
+        data = {
+            'email': 'test@example.com',
+            'password': 'testpass123',
+            'password_confirm': 'testpass123',
+            'first_name': 'Test',
+            'last_name': 'User',
+        }
+        serializer = UserRegistrationSerializer(data=data)
+        self.assertTrue(serializer.is_valid())
+        user = serializer.save()
+        self.assertEqual(user.email, 'test@example.com')
+        self.assertTrue(user.check_password('testpass123'))
+
+    def test_duplicate_email_registration(self):
+        """Test that duplicate email raises validation error."""
+        User.objects.create_user(
+            email='existing@example.com', password='pass123'
+        )
+        data = {
+            'email': 'existing@example.com',
+            'password': 'testpass123',
+            'password_confirm': 'testpass123',
+            'first_name': 'Test',
+            'last_name': 'User',
+        }
+        serializer = UserRegistrationSerializer(data=data)
+        self.assertFalse(serializer.is_valid())
+        self.assertIn('email', serializer.errors)
+
+    def test_password_mismatch(self):
+        """Test that mismatched passwords raise validation error."""
+        data = {
+            'email': 'test@example.com',
+            'password': 'testpass123',
+            'password_confirm': 'differentpass',
+            'first_name': 'Test',
+            'last_name': 'User',
+        }
+        serializer = UserRegistrationSerializer(data=data)
+        self.assertFalse(serializer.is_valid())
+        self.assertIn('password_confirm', serializer.errors)
+
+
+class UserLoginSerializerTestCase(TestCase):
+    """Test cases for UserLoginSerializer."""
+
+    def setUp(self):
+        """Set up test user."""
+        self.user = User.objects.create_user(
+            email='test@example.com', password='testpass123'
+        )
+
+    def test_valid_login_credentials(self):
+        """Test serializer with valid login credentials."""
+        data = {
+            'email': 'test@example.com',
+            'password': 'testpass123',
+        }
+        serializer = UserLoginSerializer(data=data)
+        self.assertTrue(serializer.is_valid())
+        self.assertEqual(serializer.validated_data['user'], self.user)
+
+    def test_invalid_email(self):
+        """Test serializer with invalid email."""
+        data = {
+            'email': 'wrong@example.com',
+            'password': 'testpass123',
+        }
+        serializer = UserLoginSerializer(data=data)
+        self.assertFalse(serializer.is_valid())
+
+    def test_invalid_password(self):
+        """Test serializer with invalid password."""
+        data = {
+            'email': 'test@example.com',
+            'password': 'wrongpass',
+        }
+        serializer = UserLoginSerializer(data=data)
+        self.assertFalse(serializer.is_valid())
+
+    def test_inactive_user_login(self):
+        """Test that inactive user cannot login."""
+        self.user.is_active = False
+        self.user.save()
+        data = {
+            'email': 'test@example.com',
+            'password': 'testpass123',
+        }
+        serializer = UserLoginSerializer(data=data)
+        self.assertFalse(serializer.is_valid())
+
+
+class UserUpdateSerializerTestCase(TestCase):
+    """Test cases for UserUpdateSerializer."""
+
+    def setUp(self):
+        """Set up test user."""
+        self.user = User.objects.create_user(
+            email='test@example.com',
+            password='testpass123',
+            first_name='John',
+            last_name='Doe',
+        )
+
+    def test_update_first_name(self):
+        """Test updating first name."""
+        data = {'first_name': 'Jane'}
+        serializer = UserUpdateSerializer(self.user, data=data, partial=True)
+        self.assertTrue(serializer.is_valid())
+        serializer.save()
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.first_name, 'Jane')
+
+    def test_update_multiple_fields(self):
+        """Test updating multiple fields."""
+        data = {
+            'first_name': 'Jane',
+            'middle_name': 'Marie',
+            'last_name': 'Smith',
+        }
+        serializer = UserUpdateSerializer(self.user, data=data, partial=True)
+        self.assertTrue(serializer.is_valid())
+        serializer.save()
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.first_name, 'Jane')
+        self.assertEqual(self.user.middle_name, 'Marie')
+        self.assertEqual(self.user.last_name, 'Smith')
+
+
+class UserAPITestCase(APITestCase):
+    """Test cases for user API views."""
+
+    def setUp(self):
+        """Set up test user."""
+        self.user = User.objects.create_user(
+            email='test@example.com',
+            password='testpass123',
+            first_name='John',
+            last_name='Doe',
+        )
+        self.token = Token.objects.create(user=self.user)
+
+    def test_register_view_success(self):
+        """Test successful user registration."""
+        data = {
+            'email': 'new@example.com',
+            'password': 'newpass123',
+            'password_confirm': 'newpass123',
+            'first_name': 'New',
+            'last_name': 'User',
+        }
+        response = self.client.post(
+            '/api/users/register/', data, format='json'
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertIn('token', response.data)
+        self.assertEqual(response.data['user']['email'], 'new@example.com')
+
+    def test_register_view_duplicate_email(self):
+        """Test registration with duplicate email."""
+        data = {
+            'email': 'test@example.com',  # Already exists
+            'password': 'newpass123',
+            'password_confirm': 'newpass123',
+            'first_name': 'New',
+            'last_name': 'User',
+        }
+        response = self.client.post(
+            '/api/users/register/', data, format='json'
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_login_view_success(self):
+        """Test successful user login."""
+        data = {
+            'email': 'test@example.com',
+            'password': 'testpass123',
+        }
+        response = self.client.post('/api/users/login/', data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('token', response.data)
+
+    def test_login_view_invalid_credentials(self):
+        """Test login with invalid credentials."""
+        data = {
+            'email': 'test@example.com',
+            'password': 'wrongpass',
+        }
+        response = self.client.post('/api/users/login/', data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_logout_view_authenticated(self):
+        """Test logout with authenticated user."""
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token.key}')
+        response = self.client.post('/api/users/logout/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        # Token should be deleted
+        self.assertFalse(Token.objects.filter(key=self.token.key).exists())
+
+    def test_logout_view_unauthenticated(self):
+        """Test logout without authentication."""
+        response = self.client.post('/api/users/logout/')
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_account_delete_authenticated(self):
+        """Test account deletion with authenticated user."""
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token.key}')
+        response = self.client.delete('/api/users/delete/')
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        # User should be inactive
+        self.user.refresh_from_db()
+        self.assertFalse(self.user.is_active)
+        # Token should be deleted
+        self.assertFalse(Token.objects.filter(user=self.user).exists())
+
+    def test_account_delete_unauthenticated(self):
+        """Test account deletion without authentication."""
+        response = self.client.delete('/api/users/delete/')
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_user_update_authenticated(self):
+        """Test user profile update with authenticated user."""
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token.key}')
+        data = {'first_name': 'Jane', 'last_name': 'Smith'}
+        response = self.client.patch('/api/users/update/', data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['user']['first_name'], 'Jane')
+        self.assertEqual(response.data['user']['last_name'], 'Smith')
+
+    def test_user_update_unauthenticated(self):
+        """Test user profile update without authentication."""
+        data = {'first_name': 'Jane'}
+        response = self.client.patch('/api/users/update/', data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
