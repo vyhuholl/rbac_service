@@ -17,6 +17,9 @@ dev = [
     "ruff>=0.14.13",
 ]
 
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "rbac_service.settings"
+
 [tool.ruff]
 line-length = 79
 
