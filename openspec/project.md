@@ -5,7 +5,7 @@ This project implements a Role-Based Access Control (RBAC) service. The purpose 
 
 ## Tech Stack
 - Backend: Python + Django + DRF
-- Database: PostgreSQL
+- Database: SQLite
 - Deployment: Docker for containerization
 - Version Control: Git
 - Specification Management: OpenSpec framework
@@ -39,4 +39,4 @@ Role-Based Access Control (RBAC) is an access control paradigm whereby users are
 Technical: Require Python 3.10 or higher, Django 4.2+, DRF 3.14+, PostgreSQL 13+. Performance constraints: Support 10,000+ concurrent users with sub-100ms response times for permission checks. Scalability: Design for horizontal scaling behind a load balancer. Security: Mandatory encryption (HTTPS/TLS 1.3), rate limiting, comprehensive audit logging. Regulatory: Ensure GDPR compliance for user data processing, data minimization, and user consent. Business: Flexible for enterprise deployments, support integration with SAML/OAuth providers, avoid vendor lock-in.
 
 ## External Dependencies
-PostgreSQL database for persistent storage of users, roles, and permissions.
+SQLite database for persistent storage of users, roles, and permissions.
