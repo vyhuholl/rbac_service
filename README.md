@@ -32,3 +32,40 @@ Users can be created and managed through:
 Authentication uses email as the username field. Login credentials are:
 - **Username**: User's email address
 - **Password**: User's password
+
+## RBAC Models
+
+This project implements core Role-Based Access Control (RBAC) functionality with the following models:
+
+### Role Model (`rbac.Role`)
+Represents user roles in the system:
+- **Name**: Unique role identifier
+- **Description**: Optional description of the role's purpose
+- **Timestamps**: Automatic `created_at` and `updated_at` fields
+
+### Business Element Model (`rbac.BusinessElement`)
+Represents resources or objects that can have access controls:
+- **Name**: Unique resource identifier
+- **Description**: Optional description of the resource
+- **Timestamps**: Automatic `created_at` and `updated_at` fields
+
+### Access Role Rule Model (`rbac.AccessRoleRule`)
+Defines permissions for a role on a specific business element:
+- **Role**: Foreign key to the Role model
+- **Element**: Foreign key to the BusinessElement model
+- **Permissions**: Boolean fields for granular access control:
+  - `read_permission`: Read access to own resources
+  - `read_all_permission`: Read access to all resources
+  - `create_permission`: Create new resources
+  - `update_permission`: Update access to own resources
+  - `update_all_permission`: Update access to all resources
+  - `delete_permission`: Delete access to own resources
+  - `delete_all_permission`: Delete access to all resources
+
+### Unique Constraints
+- Role names must be unique
+- Business element names must be unique
+- Each (role, element) combination can have only one access rule
+
+### Django Admin Integration
+All RBAC models are registered with Django's admin interface for easy management at `/admin/rbac/`.
