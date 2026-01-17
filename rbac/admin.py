@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import AccessRoleRule, BusinessElement, Role
+from .models import AccessRoleRule, BusinessElement, Role, UserRole
 
 
 @admin.register(Role)
@@ -29,3 +29,15 @@ class AccessRoleRuleAdmin(admin.ModelAdmin):
         'delete_all_permission',
     ]
     list_filter = ['role', 'element']
+
+
+@admin.register(UserRole)
+class UserRoleAdmin(admin.ModelAdmin):
+    list_display = ['user', 'role']
+    list_filter = ['role']
+    search_fields = [
+        'user__email',
+        'user__first_name',
+        'user__last_name',
+        'role__name',
+    ]

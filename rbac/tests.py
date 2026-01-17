@@ -3,8 +3,10 @@ from django.db import IntegrityError
 from django.contrib.admin.sites import AdminSite
 from django.contrib.auth import get_user_model
 from django.test import Client
+from rest_framework.test import APITestCase
+from rest_framework import status
 
-from .models import AccessRoleRule, BusinessElement, Role
+from .models import AccessRoleRule, BusinessElement, Role, UserRole
 from .admin import AccessRoleRuleAdmin, BusinessElementAdmin, RoleAdmin
 
 User = get_user_model()
@@ -237,3 +239,123 @@ class AccessRoleRuleAdminTest(TestCase):
         """Test AccessRoleRuleAdmin list_filter configuration."""
         self.assertIn('role', self.rule_admin.list_filter)
         self.assertIn('element', self.rule_admin.list_filter)
+
+
+class UserRoleModelTest(TestCase):
+    """Test cases for UserRole model."""
+
+    def setUp(self):
+        """Set up test data."""
+        self.user = User.objects.create_user(
+            email='test@example.com',
+            password='password',
+            first_name='Test',
+            last_name='User',
+        )
+        self.role = Role.objects.create(name='TestRole')
+
+    def test_user_role_creation(self):
+        """Test creating user-role association."""
+        user_role = UserRole.objects.create(user=self.user, role=self.role)
+        self.assertEqual(user_role.user, self.user)
+        self.assertEqual(user_role.role, self.role)
+        self.assertIsNotNone(user_role.id)
+        self.assertIsNotNone(user_role.created_at)
+
+    def test_unique_constraint_on_user_and_role(self):
+        """Test unique constraint on (user, role) combination."""
+        UserRole.objects.create(user=self.user, role=self.role)
+        with self.assertRaises(IntegrityError):
+            UserRole.objects.create(user=self.user, role=self.role)
+
+    def test_user_role_str_method(self):
+        """Test UserRole __str__ method."""
+        user_role = UserRole.objects.create(user=self.user, role=self.role)
+        self.assertEqual(
+            str(user_role), 'Test User (test@example.com) - TestRole'
+        )
+
+
+class AccessViewTest(APITestCase):
+    """Test cases for AccessView."""
+
+    def setUp(self):
+        """Set up test data."""
+        self.user = User.objects.create_user(
+            email='user@test.com',
+            password='password',
+            first_name='Test',
+            last_name='User',
+        )
+        self.role = Role.objects.create(name='Reader')
+        self.element = BusinessElement.objects.create(
+            name='Document', description='A test document'
+        )
+        self.user_role = UserRole.objects.create(
+            user=self.user, role=self.role
+        )
+        self.access_rule = AccessRoleRule.objects.create(
+            role=self.role,
+            element=self.element,
+            read_permission=True,
+            create_permission=False,
+        )
+
+    def test_successful_access(self):
+        """Test successful access when user has required permissions."""
+        url = '/api/rbac/access/'
+        params = {
+            'user_id': str(self.user.id),
+            'resource': 'Document',
+            'permissions': 'read',
+        }
+        response = self.client.get(url, params)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['name'], 'Document')
+        self.assertEqual(response.data['description'], 'A test document')
+
+    def test_user_not_found(self):
+        """Test 401 when user does not exist."""
+        url = '/api/rbac/access/'
+        params = {
+            'user_id': -1,
+            'resource': 'Document',
+            'permissions': 'read',
+        }
+        response = self.client.get(url, params)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertIn('error', response.data)
+
+    def test_insufficient_permissions(self):
+        """Test 403 when user lacks required permissions."""
+        url = '/api/rbac/access/'
+        params = {
+            'user_id': str(self.user.id),
+            'resource': 'Document',
+            'permissions': 'create',  # User has read but not create
+        }
+        response = self.client.get(url, params)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertIn('error', response.data)
+
+    def test_resource_not_found(self):
+        """Test 403 when resource does not exist."""
+        url = '/api/rbac/access/'
+        params = {
+            'user_id': str(self.user.id),
+            'resource': 'NonExistent',
+            'permissions': 'read',
+        }
+        response = self.client.get(url, params)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertIn('error', response.data)
+
+    def test_missing_parameters(self):
+        """Test 400 when required parameters are missing."""
+        url = '/api/rbac/access/'
+        params = {
+            'user_id': str(self.user.id)
+        }  # Missing resource and permissions
+        response = self.client.get(url, params)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('error', response.data)

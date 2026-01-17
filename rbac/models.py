@@ -92,3 +92,31 @@ class AccessRoleRule(models.Model):
 
     def __str__(self):
         return f'{self.role.name} - {self.element.name}'
+
+
+class UserRole(models.Model):
+    """User-Role association for RBAC system.
+
+    Links users to roles they are assigned to.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(
+        'users.User',
+        on_delete=models.CASCADE,
+        verbose_name='Пользователь',
+    )
+    role = models.ForeignKey(
+        Role,
+        on_delete=models.CASCADE,
+        verbose_name='Роль',
+    )
+    created_at = models.DateTimeField('Дата создания', auto_now_add=True)
+
+    class Meta:
+        unique_together = ('user', 'role')
+        verbose_name = 'Роль пользователя'
+        verbose_name_plural = 'Роли пользователей'
+
+    def __str__(self):
+        return f'{self.user} - {self.role}'
