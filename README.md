@@ -1,6 +1,11 @@
 # rbac_service
 Role-Based Access Control service.
 
+## API Schemas
+- OpenAPI – available at `api/schema/`
+- Swagger – available at `api/schema/swagger-ui/`
+- ReDoc – available at `api/schema/redoc/`
+
 ## Custom User Model
 
 This project uses a custom user model (`users.User`) that extends Django's `AbstractBaseUser`. The custom user model includes:
@@ -19,12 +24,11 @@ The `AUTH_USER_MODEL` setting in `rbac_service/settings.py` is configured to use
 AUTH_USER_MODEL = 'users.User'
 ```
 
-**⚠️ Breaking Change**: This setting must be configured before creating any migrations. If migrations already exist, they will need to be reset before implementing this custom user model.
-
 ### User Management
 
 Users can be created and managed through:
 - Django Admin interface at `/admin/`
+- API at `/user/api/register`, `/user/api/login`, `/user/api/logout`, `/user/api/update` and `/user/api/delete`
 - Programmatically using `User.objects.create_user()` and `User.objects.create_superuser()`
 
 ### Authentication
